@@ -4,144 +4,106 @@
 #include "IRRemoteMap.h"
 #include "StepperController.h"
 #include "RGBController.h"
+#include "OledController.h"
 
-// pins (same as before)
-#define IR_PIN   2
-#define R_PIN    6   // PWM
-#define G_PIN    5   // PWM
-#define B_PIN    3   // PWM
+// Pin mapping
+constexpr uint8_t IR_PIN = 4;
+constexpr uint8_t R_PIN = 6;  // PWM
+constexpr uint8_t G_PIN = 5;  // PWM
+constexpr uint8_t B_PIN = 3;  // PWM
 
-#define STP_IN1  8
-#define STP_IN2  9
-#define STP_IN3  10
-#define STP_IN4  11
+constexpr uint8_t STP_IN1 = 7;
+constexpr uint8_t STP_IN2 = 8;
+constexpr uint8_t STP_IN3 = 9;
+constexpr uint8_t STP_IN4 = 10;
+
+// Motion and UI tuning
+constexpr uint32_t STEPS_PER_REV = 4096UL;
+constexpr uint32_t CONTINUOUS_TIMEOUT_MS = 10UL * 60UL * 1000UL; // 10 minutes
+enum class AppState { IDLE, CONTINUOUS_LEFT, CONTINUOUS_RIGHT };
+enum class StatusCode { STOPPED, RUNNING };
+enum class DirectionCode { NONE, CW, CCW };
 
 ArduinoLEDMatrix matrix;
 StepperController stepper(STP_IN1, STP_IN2, STP_IN3, STP_IN4);
 RGBController rgb(R_PIN, G_PIN, B_PIN);
+OledController oled;
 
-const uint32_t STEPS_PER_REV = 4096;
-
-// Continuous auto-stop timeout (10 minutes)
-const unsigned long CONTINUOUS_TIMEOUT_MS = 10UL * 60UL * 1000UL; // 10 minutes
-
-// application run-state
-enum class AppState { IDLE, CONTINUOUS_LEFT, CONTINUOUS_RIGHT };
 static AppState appState = AppState::IDLE;
-
-// siren blink control
-unsigned long lastBlinkMillis = 0;
-const unsigned long BLINK_INTERVAL = 300; // ms between color swaps
-bool sirenToggle = false;
+static StatusCode currentStatus = StatusCode::STOPPED;
+static DirectionCode currentDirection = DirectionCode::NONE;
 
 // continuous start time for timeout
-unsigned long continuousStartMillis = 0;
+static unsigned long continuousStartMillis = 0;
 
-// matrix refresh control
-unsigned long lastMatrixUpdateMillis = 0;
-const unsigned long MATRIX_UPDATE_INTERVAL = 250; // refresh pos every 250ms
-String currentStatus = "RDY"; // text shown on top line
-
-// helper to draw 2-line static display: top status, bottom position
-void updateMatrixStatusAndPos(const String &status, int32_t posSteps) {
-  // Draw status (top) and static position (bottom). Coordinates may need slight tuning depending on your matrix.
-  matrix.beginDraw();
-  matrix.clear(); // be explicit
-  matrix.stroke(0xFFFFFFFF);
-  matrix.textScrollSpeed(100);
-  matrix.textFont(Font_4x6);
-
-  // Top line: status at y=0
-  matrix.beginText(0, 0, 0xFFFFFFFF);
-  matrix.print(status);
-  matrix.endText(NO_SCROLL);
-
-  // Bottom line: position. Show raw half-steps and revolutions approx.
-  char buf[32];
-  // show steps and revolutions with 2 decimal places
-  float revs = (float)posSteps / (float)STEPS_PER_REV;
-  // format: "POS: +1234  R:0.30"
-  snprintf(buf, sizeof(buf), "POS:%ld R:%.2f", (long)posSteps, revs);
-
-  // y coordinate chosen to appear on second line — tweak if needed for your matrix
-  matrix.beginText(0, 9, 0xFFFFFFFF);
-  matrix.print(String(buf));
-  matrix.endText(NO_SCROLL);
-
-  matrix.endDraw();
+// Map enums to display text
+const char *statusToDisplay(StatusCode status) {
+  return (status == StatusCode::RUNNING) ? "Running" : "Stopped";
 }
 
-void showTextOnMatrix(const String &text) {
-  // for single-line messages we still want the pos line below — so read position and call updateMatrixStatusAndPos
-  updateMatrixStatusAndPos(text, stepper.getPosition());
-}
-
-// siren helpers
-void setSirenStart() {
-  lastBlinkMillis = millis();
-  sirenToggle = false;
-  rgb.setColor(255,0,0);
-  rgb.setOn(true);
-}
-
-void updateSirenBlink() {
-  unsigned long now = millis();
-  if (now - lastBlinkMillis >= BLINK_INTERVAL) {
-    lastBlinkMillis = now;
-    sirenToggle = !sirenToggle;
-    if (sirenToggle) rgb.setColor(0,0,255);
-    else rgb.setColor(255,0,0);
-    rgb.setOn(true);
+const char *directionToDisplay(DirectionCode dir) {
+  switch (dir) {
+    case DirectionCode::CW:  return "Clockwise";
+    case DirectionCode::CCW: return "Counter Clockwise";
+    default:                 return "--";
   }
 }
 
-void enterContinuousLeft(){
+void updateDashboardNow() {
+  const int32_t rotationsTenth = (int32_t)(stepper.getPosition() * 10L) / (int32_t)STEPS_PER_REV;
+  oled.updateDashboard(statusToDisplay(currentStatus), directionToDisplay(currentDirection), rotationsTenth);
+}
+
+void enterContinuousLeft(unsigned long now) {
   appState = AppState::CONTINUOUS_LEFT;
-  currentStatus = "LEFT";
-  updateMatrixStatusAndPos(currentStatus, stepper.getPosition());
-  setSirenStart();
+  currentStatus = StatusCode::RUNNING;
+  currentDirection = DirectionCode::CCW;
+  rgb.setColor(0, 255, 0); // green while moving
+  rgb.setOn(true);
   stepper.startContinuous(StepperDir::CCW, StepperSpeed::FAST);
-  continuousStartMillis = millis();
+  continuousStartMillis = now;
+  updateDashboardNow();
 }
 
-void enterContinuousRight(){
+void enterContinuousRight(unsigned long now) {
   appState = AppState::CONTINUOUS_RIGHT;
-  currentStatus = "RIGHT";
-  updateMatrixStatusAndPos(currentStatus, stepper.getPosition());
-  setSirenStart();
+  currentStatus = StatusCode::RUNNING;
+  currentDirection = DirectionCode::CW;
+  rgb.setColor(0, 255, 0); // green while moving
+  rgb.setOn(true);
   stepper.startContinuous(StepperDir::CW, StepperSpeed::FAST);
-  continuousStartMillis = millis();
+  continuousStartMillis = now;
+  updateDashboardNow();
 }
 
-void exitContinuous(const char* reason = "RDY"){
+void exitContinuous(StatusCode reason, unsigned long now) {
   appState = AppState::IDLE;
   stepper.stopContinuous();
-  rgb.setColor(0,255,0);
+  rgb.setColor(255, 0, 0); // red when stopped
   rgb.setOn(true);
-  currentStatus = String(reason);
-  updateMatrixStatusAndPos(currentStatus, stepper.getPosition());
+  currentStatus = reason;
+  updateDashboardNow();
 }
 
-void handleIRButton(IRButton btn) {
+void handleIRButton(IRButton btn, unsigned long now) {
   switch (btn) {
     case IRButton::BTN_LEFT:
-      // start continuous CCW until OK
-      enterContinuousLeft();
+      enterContinuousLeft(now);
       break;
     case IRButton::BTN_RIGHT:
-      // start continuous CW until OK
-      enterContinuousRight();
+      enterContinuousRight(now);
       break;
     case IRButton::BTN_OK:
-      // stop continuous if running
       if (appState == AppState::CONTINUOUS_LEFT || appState == AppState::CONTINUOUS_RIGHT) {
-        exitContinuous("RDY");
+        exitContinuous(StatusCode::STOPPED, now);
       } else {
-        Serial.println("OK pressed (no continuous running).");
+        Serial.println(F("OK pressed (no continuous running)."));
+        currentStatus = StatusCode::STOPPED;
+        updateDashboardNow();
       }
       break;
 
-    // numeric commands 1..6 — blocking moves; ignore if continuous active
+    // numeric commands 1..6 - blocking moves; ignore if continuous active
     case IRButton::BTN_1:
     case IRButton::BTN_2:
     case IRButton::BTN_3:
@@ -150,29 +112,61 @@ void handleIRButton(IRButton btn) {
     case IRButton::BTN_6:
     {
       if (appState != AppState::IDLE) {
-        Serial.println("Numeric command ignored during continuous motion.");
+        Serial.println(F("Numeric command ignored during continuous motion."));
         break;
       }
-      // set red and CMD
-      rgb.setColor(255,0,0); rgb.setOn(true);
-      currentStatus = "CMD";
-      updateMatrixStatusAndPos(currentStatus, stepper.getPosition());
+      rgb.setColor(0, 255, 0); // green while moving
+      rgb.setOn(true);
+      currentStatus = StatusCode::RUNNING;
+      currentDirection = (btn == IRButton::BTN_1 || btn == IRButton::BTN_2 || btn == IRButton::BTN_3)
+                         ? DirectionCode::CCW : DirectionCode::CW;
+      updateDashboardNow();
 
-      if (btn == IRButton::BTN_1) stepper.rotate(StepperDir::CCW, STEPS_PER_REV/8, StepperSpeed::SLOW);
-      if (btn == IRButton::BTN_2) stepper.rotate(StepperDir::CCW, STEPS_PER_REV/4, StepperSpeed::NORMAL);
-      if (btn == IRButton::BTN_3) stepper.rotate(StepperDir::CCW, STEPS_PER_REV/2, StepperSpeed::FAST);
-      if (btn == IRButton::BTN_4) stepper.rotate(StepperDir::CW,  STEPS_PER_REV/8, StepperSpeed::SLOW);
-      if (btn == IRButton::BTN_5) stepper.rotate(StepperDir::CW,  STEPS_PER_REV/4, StepperSpeed::NORMAL);
-      if (btn == IRButton::BTN_6) stepper.rotate(StepperDir::CW,  STEPS_PER_REV/2, StepperSpeed::FAST);
+      switch (btn) {
+        case IRButton::BTN_1: stepper.rotate(StepperDir::CCW, STEPS_PER_REV / 8U, StepperSpeed::SLOW);   break;
+        case IRButton::BTN_2: stepper.rotate(StepperDir::CCW, STEPS_PER_REV / 4U, StepperSpeed::NORMAL); break;
+        case IRButton::BTN_3: stepper.rotate(StepperDir::CCW, STEPS_PER_REV / 2U, StepperSpeed::FAST);   break;
+        case IRButton::BTN_4: stepper.rotate(StepperDir::CW,  STEPS_PER_REV / 8U, StepperSpeed::SLOW);   break;
+        case IRButton::BTN_5: stepper.rotate(StepperDir::CW,  STEPS_PER_REV / 4U, StepperSpeed::NORMAL); break;
+        case IRButton::BTN_6: stepper.rotate(StepperDir::CW,  STEPS_PER_REV / 2U, StepperSpeed::FAST);   break;
+        default: break;
+      }
 
-      rgb.setColor(0,255,0); rgb.setOn(true);
-      currentStatus = "DONE";
-      updateMatrixStatusAndPos(currentStatus, stepper.getPosition());
+      rgb.setColor(255, 0, 0); // red when stopped
+      rgb.setOn(true);
+      currentStatus = StatusCode::STOPPED;
+      updateDashboardNow();
     } break;
 
     default:
-      Serial.println("Ignored button (not implemented)");
+      Serial.println(F("Ignored button (not implemented)"));
       break;
+  }
+}
+
+void processIr(unsigned long now) {
+  if (!IrReceiver.decode()) {
+    return;
+  }
+  const uint32_t raw = IrReceiver.decodedIRData.decodedRawData;
+  const IRButton btn = IRRemoteMap::getButton(raw);
+  Serial.print(F("BTN: "));
+  Serial.println(IRRemoteMap::toString(btn));
+  handleIRButton(btn, now);
+  IrReceiver.resume();
+}
+
+void handleContinuousTimeout(unsigned long now) {
+  if (appState == AppState::IDLE) {
+    return;
+  }
+  if (now - continuousStartMillis >= CONTINUOUS_TIMEOUT_MS) {
+    // Stop motion silently; user will refresh display on next OK press.
+    appState = AppState::IDLE;
+    stepper.stopContinuous();
+    rgb.setColor(255, 0, 0); // red when stopped
+    rgb.setOn(true);
+    currentStatus = StatusCode::STOPPED;
   }
 }
 
@@ -180,77 +174,55 @@ void setup() {
   Serial.begin(9600);
   delay(50);
 
+  // Keep I2C slow to reduce SH1106/SSD1306 artifacts on long/noisy runs.
+  Wire.setClock(80000);
+
   if (matrix.begin()) {
-    Serial.println("Matrix init OK");
+    Serial.println(F("Matrix init OK"));
   } else {
-    Serial.println("Matrix not present or init failed");
+    Serial.println(F("Matrix not present or init failed"));
+  }
+
+  if (oled.begin()) {
+    Serial.println(F("OLED init OK"));
+  } else {
+    Serial.println(F("OLED init failed"));
   }
 
   rgb.begin();
-  rgb.setColor(255,0,0); // red while starting
+  rgb.setColor(255, 255, 0); // yellow while starting
   rgb.setOn(true);
-  currentStatus = "WAIT";
-  updateMatrixStatusAndPos(currentStatus, 0);
+  currentStatus = StatusCode::STOPPED;
+  currentDirection = DirectionCode::NONE;
+  updateDashboardNow();
 
   stepper.begin();
   stepper.setStepsPerRevolution(STEPS_PER_REV);
 
   IrReceiver.begin(IR_PIN, ENABLE_LED_FEEDBACK);
-  Serial.println("IR ready");
+  Serial.println(F("IR ready"));
 
   // hardware test (blocking small sweep). This will update position.
   stepper.testMotor();
   delay(200);
 
   // set ready
-  rgb.setColor(0,255,0); rgb.setOn(true);
-  currentStatus = "RDY";
-  updateMatrixStatusAndPos(currentStatus, stepper.getPosition());
+  rgb.setColor(255, 0, 0); // red when ready/stopped
+  rgb.setOn(true);
+  currentStatus = StatusCode::STOPPED;
   appState = AppState::IDLE;
   continuousStartMillis = 0;
+  updateDashboardNow();
 }
 
 void loop() {
-  // process IR when available
-  if (IrReceiver.decode()) {
-    uint32_t raw = IrReceiver.decodedIRData.decodedRawData;
-    IRButton btn = IRRemoteMap::getButton(raw);
-    const char *name = IRRemoteMap::toString(btn);
-    Serial.print("BTN: "); Serial.println(name);
-    handleIRButton(btn);
-    IrReceiver.resume();
-  }
+  const unsigned long now = millis();
+  processIr(now);
 
   // drive stepper (non-blocking)
   stepper.stepTick();
 
-  // timeout check for continuous runs
-  if (appState != AppState::IDLE) {
-    unsigned long now = millis();
-    if (now - continuousStartMillis >= CONTINUOUS_TIMEOUT_MS) {
-      // auto-stop
-      exitContinuous("TIMEOUT");
-    }
-  }
-
-  // update siren blink & matrix while continuous
-  if (appState == AppState::CONTINUOUS_LEFT || appState == AppState::CONTINUOUS_RIGHT) {
-    updateSirenBlink();
-
-    unsigned long now = millis();
-    if (now - lastMatrixUpdateMillis >= MATRIX_UPDATE_INTERVAL) {
-      lastMatrixUpdateMillis = now;
-      // refresh the static display showing status and position
-      updateMatrixStatusAndPos(currentStatus, stepper.getPosition());
-    }
-  } else {
-    // if idle, update position less frequently to reflect any changes
-    unsigned long now = millis();
-    if (now - lastMatrixUpdateMillis >= 1000) {
-      lastMatrixUpdateMillis = now;
-      updateMatrixStatusAndPos(currentStatus, stepper.getPosition());
-    }
-  }
+  handleContinuousTimeout(now);
 
   // keep loop fast and non-blocking
   delay(1);
