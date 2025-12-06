@@ -1,0 +1,29 @@
+Go through the workspace and all files to understand the project.
+Device: Arduino Uno R4 Wifi
+You have to write production ready code and optimized modular code.
+
+We are building a 2-watch winder, controlled via an IR remote and uses stepper motors to turn the watches. RGB light is used for Information to the user.
+
+Requirements:
+1. Presently only 1 stepper motor is connected. We have to connect 1 more, so utilize emtpy pins: 2,11,12,13
+2. Build a modular preset based system which runs in response to IR Button Press
+	Presets: 
+		- Button 1 : Run only Stepper Motor 1, Clockwise | LED Color - Blue at 100% brightness
+		- Button 2 : Run Only Stepper Motor 2, Clockwise | LED Color - Yellow at 100% brightness
+		- Button 3 : Run both Stepper Motors,  Clockwise | LED Color - Green at 100% brightness
+		- Button 4 : Run only stepper Motor 1, Counter-Clockwise | LED Color - Blue at 50% brightness
+		- Button 5 : Run only stepper Motor 2, Counter-Clockwise | LED Color - Yellow at 50% brightness
+		- Button 6 : Run both stepper motors, Counter-Clockwise | LED Color - Green at 50% brightness
+		- Button 7 : Run both stepper motors, Clockwise, run motors for 10mins continuously, then wait for 15mins, then run again for 10mins, indefinitely | LED Colors: Purple at 100% brightness
+		- Button 8 : Run both stepper motors, Counter Clockwise, run motors for 10mins continuously, then wait for 15mins, then run again for 10mins, indefinitely | LED Colors: Purple at 50% brightness
+		- Button 9 : Save last running Preset to memory, flash LED BLUE RED 3 times to denote save success, 1 times for failure
+		- Button * : Reset Arduino
+		- Button # : Perform System Checks: Rotate Clockwise both motors one by one for 1 rotation, then counter clockwise and flash LED to all colors in spectrum to test, fast.
+		- Button 0 : Load last preset from memory,  flash LED BLUE RED 3 times to denote save success, 1 times for failure
+		- Button OK : Start / Stop motion, based on Present Selected. If not preset is selected Continuosly flash RED BLUE until select.
+		- Button UP, DOWN, LEFT, RIGHT : <Empty Preset>
+	Each preset can be stored in a preset directory.
+
+3. The matrix on the Arduino should be used to show the preset selected based on the key pressed.
+
+Generate a detailed spec document (md) in specs folder and derive tasks and start implementing. Feel free to ask any clarifying questions.

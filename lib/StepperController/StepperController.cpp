@@ -103,9 +103,9 @@ void StepperController::stepTick(){
 
 void StepperController::testMotor(){
   // small blocking sweep
-  rotate(StepperDir::CW, 50, StepperSpeed::NORMAL);
+  rotate(StepperDir::CW, 50, StepperSpeed::FAST);
   delay(80);
-  rotate(StepperDir::CCW, 50, StepperSpeed::NORMAL);
+  rotate(StepperDir::CCW, 50, StepperSpeed::FAST);
 }
 
 /* position accessor and absolute move */
