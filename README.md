@@ -1,6 +1,6 @@
-# WatchWinder (UNO R4 WiFi)
+# WatchWinder
 
-Dual-stepper watch winder for the chronically forgetful. Runs on an Arduino UNO R4 WiFi, takes orders from an IR remote, flashes a smug little message on the onboard LED matrix, and blinks an RGB LED to let you know it is absolutely working very hard.
+Dual-stepper watch winder for the chronically forgetful. Runs on an Arduino UNO R4 WiFi (with LED matrix output) and now also builds on UNO R3 and Arduino Nano boards (matrix output is skipped on AVR boards). Takes orders from an IR remote and blinks an RGB LED to let you know it is absolutely working very hard.
 
 ## Demo (action shots or it did not happen)
 <video src="demo/video.mp4" controls width="640" muted></video>
@@ -8,7 +8,8 @@ Dual-stepper watch winder for the chronically forgetful. Runs on an Arduino UNO 
 If your markdown viewer ignores video tags, grab the file directly: `demo/video.mp4`.
 
 ## Hardware
-- Arduino UNO R4 WiFi (Renesas RA)
+- Arduino UNO R4 WiFi (Renesas RA) — preferred for onboard LED matrix
+- Arduino UNO R3 or Arduino Nano (ATmega328P) — same pin map; matrix output is skipped
 - Two 28BYJ-48 steppers with ULN2003 driver boards
 - IR receiver module
 - Common-cathode RGB LED (PWM on R/G/B)
@@ -51,13 +52,14 @@ If your markdown viewer ignores video tags, grab the file directly: `demo/video.
 
 ## Build and flash
 1. Install VS Code + PlatformIO. Coffee recommended.
-2. Open this folder in PlatformIO. The environment is `uno_r4_wifi` with dependencies declared in `platformio.ini`:
-   - Arduino-IRremote
-   - ArduinoGraphics
-   - IRRemoteMap
-3. Build: `pio run`
-4. Upload: `pio run -t upload`
+2. Open this folder in PlatformIO. Pick the environment for your board:
+   - `uno_r4_wifi` (default) — includes the Arduino LED matrix dependency
+   - `uno_r3` — AVR UNO R3, matrix skipped
+   - `nano` — AVR Nano (ATmega328P), matrix skipped
+3. Build: `pio run -e <env>`
+4. Upload: `pio run -e <env> -t upload`
 5. Monitor (optional): `pio device monitor -b 9600`
+6. Full step-by-step instructions live in `docs/HOWTO.md`.
 
 ## Notes
 - IR button codes are mapped via the `IRRemoteMap` library; adjust that library's key map if your remote differs.
