@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"name": "WatchWinder",
+			"path": "."
+		}
+	],
+	"settings": {
+		"chatgpt.openOnStartup": true
+	}
+}
