@@ -65,6 +65,3 @@ If your markdown viewer ignores video tags, grab the file directly: `demo/video.
 ## Notes
 - IR button codes are mapped via the `IRRemoteMap` library; adjust that library's key map if your remote differs.
 - The RGB LED is brightness-scaled per preset; it is off during duty-cycle rests and blinks blue/red for save/load feedback.
-
-## License (permission required)
-This project is not open-licensed. Any use, modification, distribution, or commercial activity requires prior written permission from the copyright holder(s). See `LICENSE.txt` for details.
