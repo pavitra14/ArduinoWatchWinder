@@ -34,8 +34,8 @@ If your markdown viewer ignores video tags, grab the file directly: `demo/video.
 | 4      | Motor 1 | CCW       | Continuous                         | Blue @ 50%             |
 | 5      | Motor 2 | CCW       | Continuous                         | Yellow @ 50%           |
 | 6      | Both    | CCW       | Continuous                         | Green @ 50%            |
-| 7      | Both    | CW        | Duty: 10 min run / 15 min rest     | Purple @ 100%          |
-| 8      | Both    | CCW       | Duty: 10 min run / 15 min rest     | Purple @ 50%           |
+| 7      | Both    | Alternates CW↔CCW | Duty: 10 min run / 10 min rest (direction flips each run) | White @ 50% |
+| 8      | Both    | M1 CW / M2 CCW    | Duty: 10 min run / 10 min rest (both run together)        | Yellow @ 50%|
 
 ### Utility buttons
 - `9` Save last running preset to EEPROM; flashes blue/red 3x on success or 1x if nothing to save.
@@ -47,6 +47,7 @@ If your markdown viewer ignores video tags, grab the file directly: `demo/video.
 ## Runtime behavior
 - Boot: serial at 9600 baud, LED warmup (yellow), matrix init, and stepper self-test. Tries to load the last saved preset; on success the LED flashes pink, the matrix shows an "M," and that preset is selected. Cute.
 - Matrix: shows the selected preset digit. Duty-cycle presets turn the LED off during rest windows, because even LEDs deserve breaks.
+- Matrix orientation: if the board is mounted upside down, set `MATRIX_ORIENTATION` to `MatrixOrientation::UpsideDown` in `src/WatchWinderApp.h`.
 - Safety: continuous presets stop after 10 minutes if left running. Stopping a preset returns the LED to solid red, the universal color for “I’m done now.”
 - Positioning: steppers use 4096 half-steps per revolution (28BYJ-48 default gearing). Math optional; trust the firmware.
 

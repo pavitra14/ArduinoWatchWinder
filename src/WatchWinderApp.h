@@ -27,6 +27,7 @@ private:
   static constexpr uint8_t STP2_IN3 = 10;
   static constexpr uint8_t STP2_IN4 = 11;
   static constexpr uint32_t STEPS_PER_REV = 4096UL;
+  static constexpr MatrixOrientation MATRIX_ORIENTATION = MatrixOrientation::UpsideDown; // set to UpsideDown if board is flipped
 
   Display display;
   RGBController rgb{R_PIN, G_PIN, B_PIN};

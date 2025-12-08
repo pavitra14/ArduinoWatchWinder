@@ -8,6 +8,23 @@ static ArduinoLEDMatrix matrix;
 #define HAS_LED_MATRIX 0
 #endif
 
+#if HAS_LED_MATRIX
+void Display::renderFrame(uint8_t frame[8][12]) {
+  if (!ready) return;
+  if (orientation == MatrixOrientation::Normal) {
+    matrix.renderBitmap(frame, 8, 12);
+    return;
+  }
+  uint8_t flipped[8][12] = {};
+  for (uint8_t r = 0; r < 8; r++) {
+    for (uint8_t c = 0; c < 12; c++) {
+      flipped[7 - r][11 - c] = frame[r][c]; // rotate 180 for upside-down mount
+    }
+  }
+  matrix.renderBitmap(flipped, 8, 12);
+}
+#endif
+
 bool Display::begin() {
 #if HAS_LED_MATRIX
   ready = matrix.begin();
@@ -18,7 +35,7 @@ bool Display::begin() {
 }
 
 #if HAS_LED_MATRIX
-static void renderDigit(uint8_t digit) {
+void renderDigit(Display &disp, uint8_t digit) {
   static const uint8_t DIGIT_FONT[10][5] = {
     {0b111,0b101,0b101,0b101,0b111}, //0
     {0b010,0b110,0b010,0b010,0b111}, //1
@@ -40,14 +57,14 @@ static void renderDigit(uint8_t digit) {
       }
     }
   }
-  matrix.renderBitmap(frame, 8, 12);
+  disp.renderFrame(frame);
 }
 #endif
 
 void Display::showDigit(uint8_t digit) {
 #if HAS_LED_MATRIX
   if (!ready) return;
-  renderDigit(digit);
+  renderDigit(*this, digit);
 #else
   (void)digit;
 #endif
@@ -71,6 +88,6 @@ void Display::showMemory() {
       }
     }
   }
-  matrix.renderBitmap(frame, 8, 12);
+  renderFrame(frame);
 #endif
 }

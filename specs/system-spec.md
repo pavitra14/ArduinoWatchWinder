@@ -35,8 +35,8 @@
 - `BTN_4`: Motor1, CCW, LED Blue @50%.
 - `BTN_5`: Motor2, CCW, LED Yellow @50%.
 - `BTN_6`: Both, CCW, LED Green @50%.
-- `BTN_7`: Both, CW, duty cycle: run 10min, rest 15min, repeat indefinitely, LED Purple @100%.
-- `BTN_8`: Both, CCW, duty cycle: run 10min, rest 15min, repeat indefinitely, LED Purple @50%.
+- `BTN_7`: Both, alternating direction duty cycle: run 10min CW, rest 10min, run 10min CCW, rest 10min, repeat; LED White @50%.
+- `BTN_8`: Both, opposing directions: Motor1 CW + Motor2 CCW, run 10min, rest 10min, repeat together; LED Yellow @50%.
 - `BTN_9`: Save last running preset to EEPROM; flash LED Blue/Red x3 on success, x1 on failure.
 - `BTN_0`: Load last preset from EEPROM; flash LED Blue/Red x3 on success, x1 on failure.
 - `BTN_*`: Reset MCU (via `NVIC_SystemReset` or watchdog kick).
@@ -47,13 +47,14 @@
 ## Behaviors
 - Selecting a numeric preset updates matrix with preset label/number and applies LED color/brightness but does not move until `OK` is pressed (except system-test/reset/save/load).
 - `OK` toggles run/pause of the active preset. Stopping returns LED to a neutral red.
-- Continuous presets (1–6) run both motors in the requested direction until stopped.
-- Duty-cycle presets (7–8) run `runMs` then pause `restMs` repeatedly while active; matrix should show a simple heartbeat tick or icon for run/rest.
+- Continuous presets (1-6) run both motors in the requested direction until stopped.
+- Duty-cycle presets (7-8) run `runMs` then pause `restMs` repeatedly while active; matrix should show a simple heartbeat tick or icon for run/rest.
 - System timeout: keep current 10-minute safety cutoff for manual continuous modes; duty-cycle handles its own timing.
 - Matrix display:
   - On select: show preset code (e.g., `P1`, `P2`, `P7`).
   - On run: show direction arrow (CW/CCW) or progress mark.
-  - On stop: show `STP` or last preset code.
+-  - On stop: show `STP` or last preset code.
+- Matrix orientation: configurable via `MatrixOrientation` (Normal vs UpsideDown) in the app; use `UpsideDown` when the board is mounted inverted so digits render correctly.
 
 ## Persistence
 - Store last successfully running preset id in EEPROM address `0` with a 1-byte checksum.

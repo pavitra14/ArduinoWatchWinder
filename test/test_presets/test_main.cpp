@@ -53,12 +53,49 @@ void test_ids_and_buttons_are_unique() {
   }
 }
 
+void test_preset7_alternating_duty_cycle() {
+  const PresetConfig* p = findPreset(IRButton::BTN_7);
+  TEST_ASSERT_NOT_NULL(p);
+  TEST_ASSERT_EQUAL_UINT8(7, p->id);
+  TEST_ASSERT_EQUAL(MotorSelection::BOTH, p->motors);
+  TEST_ASSERT_EQUAL(StepperDir::CW, p->direction);
+  TEST_ASSERT_EQUAL(StepperDir::CW, p->motor2Direction);
+  TEST_ASSERT_TRUE(p->alternateDirection);
+  TEST_ASSERT_EQUAL(StepperDir::CCW, p->altDirection);
+  TEST_ASSERT_EQUAL(PresetMode::DUTY_CYCLE, p->mode);
+  TEST_ASSERT_EQUAL_UINT32(10UL * 60UL * 1000UL, p->runMs);
+  TEST_ASSERT_EQUAL_UINT32(10UL * 60UL * 1000UL, p->restMs);
+  TEST_ASSERT_EQUAL_UINT8(128, p->brightness);
+  TEST_ASSERT_EQUAL_UINT8(255, p->color.r);
+  TEST_ASSERT_EQUAL_UINT8(255, p->color.g);
+  TEST_ASSERT_EQUAL_UINT8(255, p->color.b);
+}
+
+void test_preset8_opposing_duty_cycle() {
+  const PresetConfig* p = findPreset(IRButton::BTN_8);
+  TEST_ASSERT_NOT_NULL(p);
+  TEST_ASSERT_EQUAL_UINT8(8, p->id);
+  TEST_ASSERT_EQUAL(MotorSelection::BOTH, p->motors);
+  TEST_ASSERT_EQUAL(StepperDir::CW, p->direction);
+  TEST_ASSERT_EQUAL(StepperDir::CCW, p->motor2Direction);
+  TEST_ASSERT_FALSE(p->alternateDirection);
+  TEST_ASSERT_EQUAL(PresetMode::DUTY_CYCLE, p->mode);
+  TEST_ASSERT_EQUAL_UINT32(10UL * 60UL * 1000UL, p->runMs);
+  TEST_ASSERT_EQUAL_UINT32(10UL * 60UL * 1000UL, p->restMs);
+  TEST_ASSERT_EQUAL_UINT8(128, p->brightness);
+  TEST_ASSERT_EQUAL_UINT8(255, p->color.r);
+  TEST_ASSERT_EQUAL_UINT8(255, p->color.g);
+  TEST_ASSERT_EQUAL_UINT8(0, p->color.b);
+}
+
 int runUnityTests() {
   UNITY_BEGIN();
   RUN_TEST(test_known_buttons_have_presets);
   RUN_TEST(test_findPresetById_valid_range);
   RUN_TEST(test_unknown_button_returns_null);
   RUN_TEST(test_ids_and_buttons_are_unique);
+  RUN_TEST(test_preset7_alternating_duty_cycle);
+  RUN_TEST(test_preset8_opposing_duty_cycle);
   return UNITY_END();
 }
 

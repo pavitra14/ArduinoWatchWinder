@@ -18,7 +18,10 @@ struct PresetConfig {
   IRButton button;           // remote button that selects this preset
   const char *label;         // short label for debug
   MotorSelection motors;     // which motors to run
-  StepperDir direction;      // CW/CCW
+  StepperDir direction;      // CW/CCW for motor1 (or both when matching)
+  StepperDir motor2Direction;// optional override for motor2 (defaults to direction when matching)
+  bool alternateDirection;   // when true, duty cycle flips direction each run window
+  StepperDir altDirection;   // alternate direction used when flipping
   PresetMode mode;           // continuous or duty-cycle
   uint32_t runMs;            // used only for duty cycle
   uint32_t restMs;           // used only for duty cycle
@@ -34,7 +37,10 @@ class DualStepperManager {
 public:
   DualStepperManager(StepperController &m1, StepperController &m2);
   void begin(uint32_t stepsPerRevolution);
-  void start(MotorSelection target, StepperDir dir, StepperSpeed speed);
+  void start(MotorSelection target,
+             StepperDir dirMotor1,
+             StepperSpeed speed,
+             StepperDir dirMotor2);
   void stopAll();
   void stepTick();
   void testSequential(uint32_t stepsPerRev);
@@ -58,10 +64,14 @@ public:
   const PresetConfig* active() const { return activePreset; }
   RunnerPhase phaseState() const { return phase; }
 private:
+  void resolveNextRunDirections(StepperDir &dir1Out, StepperDir &dir2Out) const;
+
   const PresetConfig* activePreset = nullptr;
   RunnerPhase phase = RunnerPhase::Idle;
   unsigned long phaseStart = 0;
   unsigned long startedAt = 0;
+  StepperDir currentDir = StepperDir::CW;
+  StepperDir currentDirMotor2 = StepperDir::CW;
 };
 
 class PresetStore {

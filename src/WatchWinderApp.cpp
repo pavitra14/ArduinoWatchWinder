@@ -197,6 +197,7 @@ void WatchWinderApp::begin() {
   Serial.println(F("\n[Boot] Watch Winder Starting..."));
 
   bool matrixOk = display.begin();
+  display.setOrientation(MATRIX_ORIENTATION);
   if (matrixOk) {
     Serial.println(F("[Boot] Matrix init OK"));
   } else {
