@@ -71,6 +71,15 @@ void WatchWinderApp::stopPreset() {
   logStatus("Preset stopped");
 }
 
+void WatchWinderApp::parkMotors() {
+  // stop any active motion then return both motors to logical zero
+  stopPreset();
+  steppers.stopAll();
+  logStatus("Parking motors to zero");
+  stepper1.moveTo(0, StepperSpeed::FAST);
+  stepper2.moveTo(0, StepperSpeed::FAST);
+}
+
 void WatchWinderApp::resetBoard() {
 #ifdef __arm__
   NVIC_SystemReset();
@@ -149,7 +158,8 @@ void WatchWinderApp::handleIRButton(IRButton btn, unsigned long now) {
       runSystemCheck();
       break;
     case IRButton::BTN_STAR:
-      logStatus("Reset requested");
+      logStatus("Reset requested; parking motors");
+      parkMotors();
       resetBoard();
       break;
     case IRButton::BTN_UP:

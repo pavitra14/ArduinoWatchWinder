@@ -49,6 +49,7 @@ private:
   void selectPreset(const PresetConfig* preset);
   void startSelectedPreset(unsigned long now);
   void stopPreset();
+  void parkMotors();
   void resetBoard();
   void runSystemCheck();
   void handleSavePreset();

@@ -39,7 +39,7 @@
 - `BTN_8`: Both, opposing directions: Motor1 CW + Motor2 CCW, run 10min, rest 10min, repeat together; LED Yellow @50%.
 - `BTN_9`: Save last running preset to EEPROM; flash LED Blue/Red x3 on success, x1 on failure.
 - `BTN_0`: Load last preset from EEPROM; flash LED Blue/Red x3 on success, x1 on failure.
-- `BTN_*`: Reset MCU (via `NVIC_SystemReset` or watchdog kick).
+- `BTN_*`: Park both motors to logical zero, then reset MCU (via `NVIC_SystemReset` or watchdog kick).
 - `BTN_OK`: Start/Stop current preset. If none selected, flash LED Red/Blue continuously until selection.
 - `BTN_#`: System check: rotate both motors CW one rev each, then CCW; flash full RGB spectrum quickly.
 - `BTN_UP/DOWN/LEFT/RIGHT`: reserved empty presets (no-op for now).

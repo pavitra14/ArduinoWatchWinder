@@ -41,7 +41,7 @@ If your markdown viewer ignores video tags, grab the file directly: `demo/video.
 - `9` Save last running preset to EEPROM; flashes blue/red 3x on success or 1x if nothing to save.
 - `0` Load saved preset from EEPROM; flashes blue/red 3x on success, 1x on failure.
 - `#` System check: RGB LED color sweep, then CW/CCW rotation test on both motors (tiny flex).
-- `*` Reset MCU (the Arduino equivalent of “turn it off and on again”).
+- `*` Reset MCU after parking both motors back to logical zero.
 - `UP/DOWN/LEFT/RIGHT` Reserved (no-op).
 
 ## Runtime behavior
