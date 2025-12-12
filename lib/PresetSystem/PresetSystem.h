@@ -69,7 +69,6 @@ private:
   const PresetConfig* activePreset = nullptr;
   RunnerPhase phase = RunnerPhase::Idle;
   unsigned long phaseStart = 0;
-  unsigned long startedAt = 0;
   StepperDir currentDir = StepperDir::CW;
   StepperDir currentDirMotor2 = StepperDir::CW;
 };

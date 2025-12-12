@@ -87,7 +87,6 @@ bool PresetRunner::start(const PresetConfig* preset,
   activePreset = preset;
   phase = RunnerPhase::Running;
   phaseStart = nowMillis;
-  startedAt = nowMillis;
   currentDir = activePreset->direction;
   currentDirMotor2 = activePreset->motor2Direction;
 
@@ -133,11 +132,6 @@ void PresetRunner::tick(DualStepperManager &steppers, RGBController &rgb, unsign
   if (phase == RunnerPhase::Idle || !activePreset) return;
 
   if (activePreset->mode == PresetMode::CONTINUOUS) {
-    // safety timeout
-    if (nowMillis - startedAt >= TEN_MIN_MS) {
-      stop(steppers, rgb);
-      Serial.println(F("[PresetRunner] Safety timeout reached, stopping."));
-    }
     return;
   }
 
