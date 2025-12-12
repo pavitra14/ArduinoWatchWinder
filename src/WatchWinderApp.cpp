@@ -8,7 +8,11 @@ void WatchWinderApp::logStatus(const char* msg) {
 }
 
 void WatchWinderApp::syncLedToState() {
-  if (presetRunner.isActive() && presetRunner.active()) {
+  if (manualRunning) {
+    rgb.setBrightness(255);
+    rgb.setColor(0, 255, 180); // cyan-green for manual mode
+    rgb.setOn(true);
+  } else if (presetRunner.isActive() && presetRunner.active()) {
     const PresetConfig* p = presetRunner.active();
     rgb.setBrightness(p->brightness);
     rgb.setColor(p->color.r, p->color.g, p->color.b);
@@ -41,6 +45,10 @@ void WatchWinderApp::selectPreset(const PresetConfig* preset) {
   if (presetRunner.isActive()) {
     presetRunner.stop(steppers, rgb);
   }
+  if (manualRunning) {
+    steppers.stopAll();
+    manualRunning = false;
+  }
   selectedPreset = preset;
   needPresetBlink = false;
   syncLedToState();
@@ -66,9 +74,16 @@ void WatchWinderApp::startSelectedPreset(unsigned long now) {
 }
 
 void WatchWinderApp::stopPreset() {
-  if (!presetRunner.isActive()) return;
-  presetRunner.stop(steppers, rgb);
-  logStatus("Preset stopped");
+  if (presetRunner.isActive()) {
+    presetRunner.stop(steppers, rgb);
+    logStatus("Preset stopped");
+  }
+  if (manualRunning) {
+    steppers.stopAll();
+    manualRunning = false;
+    syncLedToState();
+    logStatus("Manual control stopped");
+  }
 }
 
 void WatchWinderApp::parkMotors() {
@@ -145,7 +160,7 @@ void WatchWinderApp::handleIRButton(IRButton btn, unsigned long now) {
 
   switch (btn) {
     case IRButton::BTN_OK:
-      if (presetRunner.isActive()) stopPreset();
+      if (presetRunner.isActive() || manualRunning) stopPreset();
       else startSelectedPreset(now);
       break;
     case IRButton::BTN_9:
@@ -163,7 +178,25 @@ void WatchWinderApp::handleIRButton(IRButton btn, unsigned long now) {
       resetBoard();
       break;
     case IRButton::BTN_UP:
+      wifiEnabledPref = true;
+      presetStore.saveWifiEnabled(true);
+      if (!wifi.isEnabled()) {
+        wifi.begin(this);
+        logStatus("WiFi enabled");
+        wifiEnabledAt = millis();
+      } else {
+        logStatus("WiFi already enabled");
+      }
+      break;
     case IRButton::BTN_DOWN:
+      wifiEnabledPref = false;
+      presetStore.saveWifiEnabled(false);
+      if (wifi.isEnabled()) {
+        wifi.disable();
+        logStatus("WiFi disabled");
+      }
+      wifiEnabledAt = 0;
+      break;
     case IRButton::BTN_LEFT:
     case IRButton::BTN_RIGHT:
       logStatus("Reserved button pressed");
@@ -239,11 +272,23 @@ void WatchWinderApp::begin() {
     Serial.println(F("[Boot] No valid preset in memory"));
   }
 
+  metrics.begin(STEPS_PER_REV);
+  stepper1.attachMetrics(&metrics, MotorId::Motor1);
+  stepper2.attachMetrics(&metrics, MotorId::Motor2);
   steppers.begin(STEPS_PER_REV);
   Serial.println(F("[Boot] Steppers initialized"));
 
   IrReceiver.begin(IR_PIN, ENABLE_LED_FEEDBACK);
   Serial.println(F("[Boot] IR ready"));
+
+  bool wifiPrefLoaded = presetStore.loadWifiEnabled(wifiEnabledPref);
+  if (!wifiPrefLoaded) wifiEnabledPref = false; // default OFF
+  if (wifiEnabledPref) {
+    wifiEnabledAt = millis();
+    wifi.begin(this);
+  } else {
+    Serial.println(F("[WiFi] Disabled per preference"));
+  }
 
   stepper1.testMotor();
   Serial.println(F("[Boot] Motor1 test done"));
@@ -257,9 +302,103 @@ void WatchWinderApp::begin() {
 
 void WatchWinderApp::tick() {
   const unsigned long now = millis();
+  steppers.stepTick(); // keep stepping first to avoid any latency
   handleIr(now);
-  steppers.stepTick();
+  if (wifiEnabledPref && wifi.isEnabled()) {
+    wifi.tick(now);
+    if (wifiEnabledAt == 0) wifiEnabledAt = now;
+    if (now - wifiEnabledAt >= WIFI_MAX_ON_MS) {
+      wifi.disable();
+      wifiEnabledPref = false;
+      presetStore.saveWifiEnabled(false);
+      logStatus("WiFi auto-disabled after 5 min");
+      wifiEnabledAt = 0;
+    }
+  }
   presetRunner.tick(steppers, rgb, now);
+  if (scheduleArmed && !presetRunner.isActive() && !manualRunning) {
+    if (now - scheduleArmedAt >= scheduleDelayMs) {
+      wifiStartPreset(schedulePresetId, now);
+      scheduleArmed = false;
+      scheduleRunCount++;
+    }
+  }
   handlePresetBlink(now);
-  delay(1);
+  delay(0); // minimal yield
+}
+
+bool WatchWinderApp::wifiStartPreset(uint8_t presetId, unsigned long now) {
+  const PresetConfig* preset = findPresetById(presetId);
+  if (!preset) return false;
+  selectPreset(preset);
+  startSelectedPreset(now);
+  return presetRunner.isActive();
+}
+
+void WatchWinderApp::wifiStopPreset() {
+  stopPreset();
+}
+
+MotorSnapshot WatchWinderApp::wifiMotorSnapshot(MotorId id) {
+  return metrics.snapshot(id);
+}
+
+bool WatchWinderApp::wifiSchedulePreset(uint8_t presetId, uint32_t delaySeconds) {
+  const PresetConfig* preset = findPresetById(presetId);
+  if (!preset) return false;
+  scheduleArmed = true;
+  schedulePresetId = presetId;
+  scheduleDelayMs = delaySeconds * 1000UL;
+  scheduleArmedAt = millis();
+  Serial.print(F("[Schedule] Armed preset id="));
+  Serial.print(presetId);
+  Serial.print(F(" in "));
+  Serial.print(delaySeconds);
+  Serial.println(F("s"));
+  return true;
+}
+
+bool WatchWinderApp::wifiCancelSchedule() {
+  if (!scheduleArmed) return false;
+  scheduleArmed = false;
+  scheduleDelayMs = 0;
+  schedulePresetId = 0;
+  Serial.println(F("[Schedule] Cleared"));
+  return true;
+}
+
+uint32_t WatchWinderApp::wifiScheduleSecondsRemaining(unsigned long now) const {
+  if (!scheduleArmed) return 0;
+  unsigned long elapsed = now - scheduleArmedAt;
+  if (elapsed >= scheduleDelayMs) return 0;
+  return (scheduleDelayMs - elapsed) / 1000UL;
+}
+
+bool WatchWinderApp::wifiManualStart(MotorSelection motors, StepperDir dir1, StepperDir dir2, StepperSpeed speed) {
+  stopPreset(); // stop any preset or manual currently running
+  manualRunning = true;
+  manualMotors = motors;
+  manualDir1 = dir1;
+  manualDir2 = dir2;
+  manualSpeed = speed;
+  steppers.start(motors, dir1, speed, dir2);
+  selectedPreset = nullptr;
+  syncLedToState();
+  Serial.print(F("[Manual] Start motors="));
+  Serial.print(static_cast<uint8_t>(motors));
+  Serial.print(F(" dir1="));
+  Serial.print(dir1 == StepperDir::CW ? F("CW") : F("CCW"));
+  Serial.print(F(" dir2="));
+  Serial.print(dir2 == StepperDir::CW ? F("CW") : F("CCW"));
+  Serial.print(F(" speed="));
+  Serial.println(static_cast<uint8_t>(speed));
+  return true;
+}
+
+void WatchWinderApp::wifiManualStop() {
+  if (!manualRunning) return;
+  steppers.stopAll();
+  manualRunning = false;
+  syncLedToState();
+  Serial.println(F("[Manual] Stopped"));
 }

@@ -54,9 +54,11 @@ void StepperController::rotate(StepperDir dir, uint32_t steps, StepperSpeed spee
     if (dir == StepperDir::CW) {
       seqIndex = (seqIndex + 1) & 0x07;
       positionSteps++; // increment position for each half-step (CW positive)
+      if (metrics) metrics->recordStep(metricsId, StepperDir::CW);
     } else {
       seqIndex = (seqIndex + 7) & 0x07;
       positionSteps--; // CCW negative
+      if (metrics) metrics->recordStep(metricsId, StepperDir::CCW);
     }
     stepOnce(seqIndex);
     delay(currentStepIntervalMs);
@@ -77,11 +79,13 @@ void StepperController::startContinuous(StepperDir dir, StepperSpeed speed){
   setIntervalForSpeed(speed);
   continuousRunning = true;
   lastStepMillis = millis();
+  if (metrics) metrics->recordStart(metricsId);
 }
 
 void StepperController::stopContinuous(){
   continuousRunning = false;
   for (int i=0;i<4;i++) digitalWrite(pins[i], LOW);
+  if (metrics) metrics->recordStop(metricsId);
 }
 
 /* Call this from loop() frequently */
@@ -93,9 +97,11 @@ void StepperController::stepTick(){
     if (continuousDir == StepperDir::CW) {
       seqIndex = (seqIndex + 1) & 0x07;
       positionSteps++; // update position
+      if (metrics) metrics->recordStep(metricsId, StepperDir::CW);
     } else {
       seqIndex = (seqIndex + 7) & 0x07;
       positionSteps--; // update position
+      if (metrics) metrics->recordStep(metricsId, StepperDir::CCW);
     }
     stepOnce(seqIndex);
   }
@@ -122,4 +128,9 @@ void StepperController::moveTo(int32_t targetSteps, StepperSpeed speed) {
     uint32_t delta = (uint32_t)(positionSteps - targetSteps);
     rotate(StepperDir::CCW, delta, speed);
   }
+}
+
+void StepperController::attachMetrics(MotorMetrics *m, MotorId id) {
+  metrics = m;
+  metricsId = id;
 }

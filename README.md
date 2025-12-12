@@ -42,14 +42,16 @@ If your markdown viewer ignores video tags, grab the file directly: `demo/video.
 - `0` Load saved preset from EEPROM; flashes blue/red 3x on success, 1x on failure.
 - `#` System check: RGB LED color sweep, then CW/CCW rotation test on both motors (tiny flex).
 - `*` Reset MCU after parking both motors back to logical zero.
-- `UP/DOWN/LEFT/RIGHT` Reserved (no-op).
+- `UP` Enable WiFi and persist that preference.
+- `DOWN` Disable WiFi and persist that preference.
+- `LEFT/RIGHT` Reserved (no-op).
 
 ## Runtime behavior
-- Boot: serial at 9600 baud, LED warmup (yellow), matrix init, and stepper self-test. Tries to load the last saved preset; on success the LED flashes pink, the matrix shows an "M," and that preset is selected. Cute.
-- Matrix: shows the selected preset digit. Duty-cycle presets turn the LED off during rest windows, because even LEDs deserve breaks.
+- Boot: serial at 9600 baud, LED warmup (yellow), matrix init, and stepper self-test. Tries to load the last saved preset; on success the LED flashes pink, the matrix shows an "M," and that preset is selected.
+- WiFi: OFF by default. Press IR `UP` to enable (stored in EEPROM), `DOWN` to disable. When off, no WiFi code runs. When on, WiFi work is throttled and only runs when a client connects; the dashboard fetches data only on refresh.
+- Matrix: shows the selected preset digit. Duty-cycle presets turn the LED off during rest windows.
 - Matrix orientation: if the board is mounted upside down, set `MATRIX_ORIENTATION` to `MatrixOrientation::UpsideDown` in `src/WatchWinderApp.h`.
-- Safety: continuous presets stop after 10 minutes if left running. Stopping a preset returns the LED to solid red, the universal color for “I’m done now.”
-- Positioning: steppers use 4096 half-steps per revolution (28BYJ-48 default gearing). Math optional; trust the firmware.
+- Positioning: steppers use 4096 half-steps per revolution (28BYJ-48 default gearing).
 
 ## Build and flash
 1. Install VS Code + PlatformIO. Coffee recommended.
@@ -65,3 +67,4 @@ If your markdown viewer ignores video tags, grab the file directly: `demo/video.
 ## Notes
 - IR button codes are mapped via the `IRRemoteMap` library; adjust that library's key map if your remote differs.
 - The RGB LED is brightness-scaled per preset; it is off during duty-cycle rests and blinks blue/red for save/load feedback.
+- WiFi dashboard: configure credentials in `include/WifiSecrets.h` (optionally set static IP). Dashboard is on-demand (no auto-poll); use the refresh button to fetch current data. WiFi remains idle when disabled.

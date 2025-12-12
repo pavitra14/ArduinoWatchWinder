@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include "MotorMetrics.h"
 
 enum class StepperSpeed { SLOW, NORMAL, FAST };
 enum class StepperDir { CW, CCW };
@@ -18,6 +19,7 @@ public:
   void startContinuous(StepperDir dir, StepperSpeed speed);
   void stopContinuous();
   void stepTick(); // must be called frequently from loop()
+  void attachMetrics(MotorMetrics *m, MotorId id);
 
   // position tracking & absolute move
   int32_t getPosition() const; // current position in half-steps (signed)
@@ -39,6 +41,8 @@ private:
   uint16_t currentStepIntervalMs = 4; // ms between half-steps
 
   volatile int32_t positionSteps = 0; // signed half-step count (can overflow if huge; handle if needed)
+  MotorMetrics *metrics = nullptr;
+  MotorId metricsId = MotorId::Motor1;
 
   void stepOnce(uint8_t stepIndex);
   void setIntervalForSpeed(StepperSpeed speed);

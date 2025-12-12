@@ -9,6 +9,7 @@ Step-by-step instructions to assemble, wire, build, and flash the WatchWinder fi
 - 1x common-cathode RGB LED + suitable resistors
 - IR remote compatible with the `IRRemoteMap` layout (adjustable if needed)
 - Optional: 3D-printed enclosure such as https://github.com/mwood77/osww
+- Optional: WiFi (UNO R4 WiFi) — credentials in `include/WifiSecrets.h`, WiFi toggled via IR `UP`/`DOWN`, off by default.
 
 ## 2) Wire everything
 All boards share the same pin map. Digital numbers refer to the Arduino silk-screen labels.
@@ -46,6 +47,7 @@ Replace `<env>` with one of the environments above. The default is `uno_r4_wifi`
 - On boot you should see serial logs at 9600 baud. UNO R4 WiFi will also animate the LED matrix; UNO R3/Nano will log that the matrix is skipped.
 - Press `#` on the remote for the self-test (RGB sweep + CW/CCW test on both steppers).
 - Use preset buttons 1-8 to select and run the modes described in `README.md`. `OK` toggles run/stop. `9` saves the last running preset to EEPROM; `0` restores it.
+- WiFi dashboard: runs only when WiFi is enabled via IR `UP` (stored in EEPROM). Data loads on refresh; there is no auto-poll to keep motors smooth.
 
 ## 7) Adapting to other remotes
 IR button codes are mapped through the `IRRemoteMap` library (pulled from GitHub). If your remote differs, update the key map in that library and rebuild.

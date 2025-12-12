@@ -77,4 +77,6 @@ class PresetStore {
 public:
   bool save(uint8_t presetId);
   bool load(uint8_t &presetIdOut);
+  bool saveWifiEnabled(bool enabled);
+  bool loadWifiEnabled(bool &enabledOut);
 };

@@ -3,7 +3,10 @@
 
 static const uint32_t TEN_MIN_MS = 10UL * 60UL * 1000UL;
 static const uint32_t FIFTEEN_MIN_MS = 15UL * 60UL * 1000UL;
+static const uint32_t THIRTY_MIN_MS = 30UL * 60UL * 1000UL;
 static const uint32_t TEN_MIN_WAIT_MS = TEN_MIN_MS;
+static const uint32_t THREE_MIN_WAIT_MS = 3UL * 60UL * 1000UL;
+
 
 // Color helpers
 static constexpr RgbColor BLUE   = {0, 0, 255};
@@ -19,8 +22,8 @@ static const PresetConfig PRESETS[] = {
   {4, IRButton::BTN_4, "Motor1 CCW 50",   MotorSelection::MOTOR1, StepperDir::CCW, StepperDir::CCW, false, StepperDir::CCW, PresetMode::CONTINUOUS, 0, 0, BLUE,   128, StepperSpeed::FAST},
   {5, IRButton::BTN_5, "Motor2 CCW 50",   MotorSelection::MOTOR2, StepperDir::CCW, StepperDir::CCW, false, StepperDir::CCW, PresetMode::CONTINUOUS, 0, 0, YELLOW, 128, StepperSpeed::FAST},
   {6, IRButton::BTN_6, "Both CCW 50",     MotorSelection::BOTH,   StepperDir::CCW, StepperDir::CCW, false, StepperDir::CCW, PresetMode::CONTINUOUS, 0, 0, GREEN,  128, StepperSpeed::FAST},
-  {7, IRButton::BTN_7, "Both alt CW/CCW duty", MotorSelection::BOTH, StepperDir::CW, StepperDir::CW, true,  StepperDir::CCW, PresetMode::DUTY_CYCLE, TEN_MIN_MS, TEN_MIN_WAIT_MS, WHITE, 128, StepperSpeed::FAST},
-  {8, IRButton::BTN_8, "M1 CW / M2 CCW duty",  MotorSelection::BOTH, StepperDir::CW, StepperDir::CCW, false, StepperDir::CW, PresetMode::DUTY_CYCLE, TEN_MIN_MS, TEN_MIN_WAIT_MS, YELLOW, 128, StepperSpeed::FAST}
+  {7, IRButton::BTN_7, "Both alt CW/CCW duty", MotorSelection::BOTH, StepperDir::CW, StepperDir::CW, true,  StepperDir::CCW, PresetMode::DUTY_CYCLE, THIRTY_MIN_MS, THREE_MIN_WAIT_MS, WHITE, 128, StepperSpeed::FAST},
+  {8, IRButton::BTN_8, "M1 CW / M2 CCW duty",  MotorSelection::BOTH, StepperDir::CW, StepperDir::CCW, false, StepperDir::CW, PresetMode::DUTY_CYCLE, THIRTY_MIN_MS, THREE_MIN_WAIT_MS, YELLOW, 128, StepperSpeed::FAST}
 };
 
 const PresetConfig* findPreset(IRButton button) {
@@ -170,6 +173,8 @@ void PresetRunner::tick(DualStepperManager &steppers, RGBController &rgb, unsign
 /* PresetStore ------------------------------------------------------------ */
 static constexpr uint8_t EEPROM_ADDR_ID = 0;
 static constexpr uint8_t EEPROM_ADDR_CSUM = 1;
+static constexpr uint8_t EEPROM_ADDR_WIFI = 2;
+static constexpr uint8_t EEPROM_ADDR_WIFI_CSUM = 3;
 static constexpr uint8_t CSUM_MAGIC = 0xA5;
 
 bool PresetStore::save(uint8_t presetId) {
@@ -189,5 +194,23 @@ bool PresetStore::load(uint8_t &presetIdOut) {
     return false;
   }
   presetIdOut = saved;
+  return true;
+}
+
+bool PresetStore::saveWifiEnabled(bool enabled) {
+  const uint8_t val = enabled ? 1 : 0;
+  const uint8_t csum = val ^ CSUM_MAGIC;
+  EEPROM.update(EEPROM_ADDR_WIFI, val);
+  EEPROM.update(EEPROM_ADDR_WIFI_CSUM, csum);
+  return true;
+}
+
+bool PresetStore::loadWifiEnabled(bool &enabledOut) {
+  uint8_t saved = EEPROM.read(EEPROM_ADDR_WIFI);
+  uint8_t csum = EEPROM.read(EEPROM_ADDR_WIFI_CSUM);
+  if ((saved ^ CSUM_MAGIC) != csum) {
+    return false;
+  }
+  enabledOut = (saved != 0);
   return true;
 }
