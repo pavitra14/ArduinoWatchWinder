@@ -254,8 +254,10 @@ void WatchWinderApp::begin() {
 
   // Attempt to load last preset from memory
   uint8_t bootPresetId = 0;
+  const PresetConfig* bootPreset = nullptr;
+  bool bootAutoStart = false;
   if (presetStore.load(bootPresetId)) {
-    const PresetConfig* bootPreset = findPresetById(bootPresetId);
+    bootPreset = findPresetById(bootPresetId);
     if (bootPreset) {
       Serial.print(F("[Boot] Loaded preset from memory id="));
       Serial.println(bootPresetId);
@@ -265,6 +267,7 @@ void WatchWinderApp::begin() {
       display.showMemory();
       delay(400);
       selectPreset(bootPreset);
+      bootAutoStart = true;
     } else {
       Serial.println(F("[Boot] Memory preset id invalid"));
     }
@@ -281,6 +284,15 @@ void WatchWinderApp::begin() {
   IrReceiver.begin(IR_PIN, ENABLE_LED_FEEDBACK);
   Serial.println(F("[Boot] IR ready"));
 
+  if (bootAutoStart && bootPreset) {
+    Serial.print(F("[Boot] Auto-starting preset id="));
+    Serial.println(bootPreset->id);
+    const bool started = presetRunner.start(bootPreset, steppers, rgb, millis());
+    if (!started) {
+      Serial.println(F("[Boot] Auto-start failed"));
+    }
+  }
+
   bool wifiPrefLoaded = presetStore.loadWifiEnabled(wifiEnabledPref);
   if (!wifiPrefLoaded) wifiEnabledPref = false; // default OFF
   if (wifiEnabledPref) {
@@ -290,10 +302,14 @@ void WatchWinderApp::begin() {
     Serial.println(F("[WiFi] Disabled per preference"));
   }
 
-  stepper1.testMotor();
-  Serial.println(F("[Boot] Motor1 test done"));
-  stepper2.testMotor();
-  Serial.println(F("[Boot] Motor2 test done"));
+  if (!bootAutoStart) {
+    stepper1.testMotor();
+    Serial.println(F("[Boot] Motor1 test done"));
+    stepper2.testMotor();
+    Serial.println(F("[Boot] Motor2 test done"));
+  } else {
+    Serial.println(F("[Boot] Motor tests skipped (auto-start active)"));
+  }
 
   rgb.setColor(255, 0, 0);
   rgb.setOn(true);
